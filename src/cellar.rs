@@ -83,6 +83,7 @@ impl WineCellar {
         Ok(())
     }
 
+    #![deprecated]
     pub fn exec(&self, exec: PathBuf, exec_args: Vec<String>) -> Result<Child> {
         Command::new(self.wine_bin_path())
             .arg(exec)
