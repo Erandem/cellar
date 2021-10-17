@@ -1,7 +1,7 @@
 mod cellar;
 
 use cellar::WineCellar;
-use clap::{App, Arg};
+use clap::{App, Arg, ArgGroup};
 
 use std::path::PathBuf;
 
@@ -28,8 +28,27 @@ fn main() -> cellar::Result<()> {
         .subcommand(
             App::new("exec")
                 .about("Allows you to run programs")
-                .arg(Arg::new("executable").required(true).takes_value(true))
-                .arg(Arg::new("rel-c").about("Resolves paths relative to C: in the prefix")),
+                .arg(
+                    Arg::new("executable")
+                        .required(true)
+                        .takes_value(true)
+                        .about("Path to the executable"),
+                )
+                .arg(
+                    Arg::new("rel-c")
+                        .about("Resolves paths relative to C: in the prefix")
+                        .takes_value(false)
+                        .long("rel-c"),
+                )
+                .group(ArgGroup::new("rel-to").arg("rel-c"))
+                // for all arguments to be passed to the executable
+                .setting(clap::AppSettings::TrailingVarArg)
+                .arg(
+                    Arg::new("exec-arguments")
+                        .raw(true)
+                        .default_values(&[""])
+                        .about("All arguments to be passed to the executable"),
+                ),
         )
         .subcommand(App::new("kill"))
         .subcommand(App::new("list-env").about("Lists environmental variables"))
@@ -67,16 +86,23 @@ fn main() -> cellar::Result<()> {
                 exec_path = c_drive_path.join(exec);
             } else {
                 // absolute path implied
+                println!("No path relativity specified! Using CWD");
                 exec_path = args.value_of_t_or_exit("executable");
             }
 
             println!("Running {:?} with wine version {}", exec_path, "TODO");
 
             // direct path expected
-            //cellar.exec(exec_path)?;
+            let exec_args = args
+                .values_of("exec-arguments")
+                .unwrap()
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>();
+            cellar.exec(exec_path, exec_args)?;
         }
 
         Some(("kill", _)) => {
+            println!("Killing prefix at {:?}", cellar.path());
             cellar.kill();
         }
 

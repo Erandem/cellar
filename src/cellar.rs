@@ -83,9 +83,10 @@ impl WineCellar {
         Ok(())
     }
 
-    pub fn exec(&self, exec: PathBuf) -> Result<Child> {
+    pub fn exec(&self, exec: PathBuf, exec_args: Vec<String>) -> Result<Child> {
         Command::new(self.wine_bin_path())
             .arg(exec)
+            .args(exec_args)
             .env("WINEPREFIX", self.wine_prefix_path())
             .spawn()
             .context(ChildExecSnafu)
