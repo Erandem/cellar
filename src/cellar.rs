@@ -160,6 +160,8 @@ pub struct CellarExecutable {
     args: Vec<String>,
 }
 
+// TODO Remove after implementation
+#[allow(dead_code)]
 impl CellarExecutable {
     fn new(wine_path: PathBuf, wine_prefix: PathBuf, executable: PathBuf) -> Self {
         Self {
