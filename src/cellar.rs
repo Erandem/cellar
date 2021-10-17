@@ -150,6 +150,59 @@ impl WineCellar {
     }
 }
 
+#[derive(Debug)]
+pub struct CellarExecutable {
+    wine_path: PathBuf,
+    wine_prefix: PathBuf,
+    executable: PathBuf,
+
+    env: EnvVars,
+    args: Vec<String>,
+}
+
+impl CellarExecutable {
+    fn new(wine_path: PathBuf, wine_prefix: PathBuf, executable: PathBuf) -> Self {
+        Self {
+            wine_path,
+            wine_prefix,
+            executable,
+
+            env: EnvVars::new(),
+            args: Vec::new(),
+        }
+    }
+
+    pub fn env(mut self, key: String, value: String) -> Self {
+        self.env.insert(key, value);
+        self
+    }
+
+    pub fn envs(mut self, vars: EnvVars) -> Self {
+        self.env.extend(vars);
+        self
+    }
+
+    pub fn arg(mut self, arg: String) -> Self {
+        self.args.push(arg);
+        self
+    }
+
+    pub fn args(mut self, args: Vec<String>) -> Self {
+        self.args.extend(args);
+        self
+    }
+
+    pub fn run(self) -> Result<Child> {
+        Command::new(self.wine_path)
+            .env("WINEPREFIX", self.wine_prefix)
+            .envs(self.env)
+            .arg(self.executable)
+            .args(self.args)
+            .spawn()
+            .context(ChildExecSnafu)
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct CellarConfig {
     extra_env: HashMap<String, String>,
