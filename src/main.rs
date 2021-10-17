@@ -6,8 +6,9 @@ use clap::{App, Arg, ArgGroup};
 use std::path::PathBuf;
 
 fn main() -> cellar::Result<()> {
-    let matches = App::new("Wine Cellar")
+    let matches = App::new("winecellar")
         .version("1.0")
+        .about("A toy for wine management without system dependence")
         .arg(
             Arg::new("path")
                 .about("The path to the wine cellar")
@@ -41,12 +42,16 @@ fn main() -> cellar::Result<()> {
                         .long("rel-c"),
                 )
                 .group(ArgGroup::new("rel-to").arg("rel-c"))
+                .arg(
+                    Arg::new("workdir")
+                        .about("Working directory of the executable")
+                        .takes_value(true),
+                )
                 // for all arguments to be passed to the executable
                 .setting(clap::AppSettings::TrailingVarArg)
                 .arg(
                     Arg::new("exec-arguments")
                         .raw(true)
-                        .default_values(&[""])
                         .about("All arguments to be passed to the executable"),
                 ),
         )
@@ -86,19 +91,37 @@ fn main() -> cellar::Result<()> {
                 exec_path = c_drive_path.join(exec);
             } else {
                 // absolute path implied
-                println!("No path relativity specified! Using CWD");
-                exec_path = args.value_of_t_or_exit("executable");
+                println!("No path relativity specified! Using default");
+                exec_path = std::fs::canonicalize(args.value_of_t_or_exit::<PathBuf>("executable"))
+                    .unwrap();
+            }
+
+            let workdir: PathBuf;
+
+            if args.is_present("workdir") {
+                workdir = args.value_of_t_or_exit("workdir");
+            } else {
+                workdir = exec_path.parent().unwrap().to_path_buf();
             }
 
             println!("Running {:?} with wine version {}", exec_path, "TODO");
+            println!("Using workdir {:?}", workdir);
 
             // direct path expected
             let exec_args = args
                 .values_of("exec-arguments")
-                .unwrap()
+                .into_iter()
+                .flatten()
                 .map(|x| x.to_string())
                 .collect::<Vec<String>>();
-            cellar.exec(exec_path, exec_args)?;
+
+            println!("{:?}", exec_args);
+
+            cellar
+                .exec_builder(exec_path)
+                .args(exec_args)
+                .workdir(workdir)
+                .run()?;
         }
 
         Some(("kill", _)) => {

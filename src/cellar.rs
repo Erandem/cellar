@@ -83,18 +83,9 @@ impl WineCellar {
         Ok(())
     }
 
-    #![deprecated]
-    pub fn exec(&self, exec: PathBuf, exec_args: Vec<String>) -> Result<Child> {
-        Command::new(self.wine_bin_path())
-            .arg(exec)
-            .args(exec_args)
-            .env("WINEPREFIX", self.wine_prefix_path())
-            .spawn()
-            .context(ChildExecSnafu)
-    }
-
     pub fn exec_builder(&self, exec: PathBuf) -> CellarExecutable {
         CellarExecutable::new(self.wine_bin_path(), self.wine_prefix_path(), exec)
+            .envs(self.get_env_vars().clone())
     }
 
     pub fn kill(&self) {
@@ -163,6 +154,7 @@ pub struct CellarExecutable {
 
     env: EnvVars,
     args: Vec<String>,
+    workdir: PathBuf,
 }
 
 // TODO Remove after implementation
@@ -176,6 +168,7 @@ impl CellarExecutable {
 
             env: EnvVars::new(),
             args: Vec::new(),
+            workdir: std::env::current_dir().unwrap(),
         }
     }
 
@@ -199,12 +192,18 @@ impl CellarExecutable {
         self
     }
 
+    pub fn workdir(mut self, workdir: PathBuf) -> Self {
+        self.workdir = workdir;
+        self
+    }
+
     pub fn run(self) -> Result<Child> {
         Command::new(self.wine_path)
             .env("WINEPREFIX", self.wine_prefix)
             .envs(self.env)
             .arg(self.executable)
             .args(self.args)
+            .current_dir(self.workdir)
             .spawn()
             .context(ChildExecSnafu)
     }
