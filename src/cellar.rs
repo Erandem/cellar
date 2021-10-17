@@ -92,6 +92,10 @@ impl WineCellar {
             .context(ChildExecSnafu)
     }
 
+    pub fn exec_builder(&self, exec: PathBuf) -> CellarExecutable {
+        CellarExecutable::new(self.wine_bin_path(), self.wine_prefix_path(), exec)
+    }
+
     pub fn kill(&self) {
         Command::new("wineserver")
             .arg("-k")
