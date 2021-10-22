@@ -1,7 +1,7 @@
 mod cellar;
 
 use cellar::WineCellar;
-use clap::{App, Arg, ArgGroup};
+use clap::{App, AppSettings, Arg, ArgGroup};
 
 use std::path::PathBuf;
 
@@ -9,6 +9,7 @@ fn main() -> cellar::Result<()> {
     let matches = App::new("winecellar")
         .version("1.0")
         .about("A toy for wine management without system dependence")
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .arg(
             Arg::new("path")
                 .about("The path to the wine cellar")
@@ -48,7 +49,7 @@ fn main() -> cellar::Result<()> {
                         .takes_value(true),
                 )
                 // for all arguments to be passed to the executable
-                .setting(clap::AppSettings::TrailingVarArg)
+                .setting(AppSettings::TrailingVarArg)
                 .arg(
                     Arg::new("exec-arguments")
                         .raw(true)
