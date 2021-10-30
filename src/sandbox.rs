@@ -2,33 +2,6 @@ use std::path::PathBuf;
 use std::process::Command;
 
 #[derive(Debug)]
-pub enum X11Sandbox {
-    DEFAULT,
-    XEPHYR,
-    XORG,
-    XPRA,
-    XVFB,
-}
-
-impl X11Sandbox {
-    pub const fn flag(&self) -> &'static str {
-        match self {
-            Self::DEFAULT => "--x11",
-            Self::XEPHYR => "--x11=xephyr",
-            Self::XORG => "--x11=xorg",
-            Self::XPRA => "--x11-xpra",
-            Self::XVFB => "--x11-xvfb",
-        }
-    }
-}
-
-impl Default for X11Sandbox {
-    fn default() -> X11Sandbox {
-        Self::DEFAULT
-    }
-}
-
-#[derive(Debug)]
 pub struct FirejailLauncher {
     firejail_exec: PathBuf,
     whitelists: Vec<PathBuf>,
@@ -164,5 +137,34 @@ impl Default for FirejailLauncher {
 
             x11: None,
         }
+    }
+}
+
+// TODO Add ability to change sandbox
+#[allow(dead_code)]
+#[derive(Debug)]
+pub enum X11Sandbox {
+    DEFAULT,
+    XEPHYR,
+    XORG,
+    XPRA,
+    XVFB,
+}
+
+impl X11Sandbox {
+    pub const fn flag(&self) -> &'static str {
+        match self {
+            Self::DEFAULT => "--x11",
+            Self::XEPHYR => "--x11=xephyr",
+            Self::XORG => "--x11=xorg",
+            Self::XPRA => "--x11-xpra",
+            Self::XVFB => "--x11-xvfb",
+        }
+    }
+}
+
+impl Default for X11Sandbox {
+    fn default() -> X11Sandbox {
+        Self::DEFAULT
     }
 }
