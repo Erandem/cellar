@@ -4,7 +4,9 @@ use snafu::prelude::*;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::process::Command;
+
+use crate::sandbox::FirejailLauncher;
 
 pub type Result<T, E = CellarError> = std::result::Result<T, E>;
 pub type EnvVars = HashMap<String, String>;
@@ -83,9 +85,21 @@ impl WineCellar {
         Ok(())
     }
 
-    pub fn exec_builder(&self, exec: PathBuf) -> CellarExecutable {
-        CellarExecutable::new(self.wine_bin_path(), self.wine_prefix_path(), exec)
-            .envs(self.get_env_vars().clone())
+    // Returns a `Command` that will start firejail with the proper profile and arguments
+    // along with a wineserver with the current prefix. It is up to the caller to use proper
+    // arguments or environmental modifications for the specified program.
+    pub fn run(&self) -> Command {
+        let mut launcher = FirejailLauncher::default();
+
+        launcher.whitelist(std::fs::canonicalize(self.path.to_path_buf()).unwrap());
+
+        let mut cmd = launcher.command();
+
+        cmd.arg(self.wine_bin_path());
+        cmd.env("WINEPREFIX", self.wine_prefix_path());
+        cmd.envs(self.get_env_vars());
+
+        cmd
     }
 
     pub fn kill(&self) {
@@ -146,66 +160,15 @@ impl WineCellar {
     }
 }
 
-#[derive(Debug)]
-pub struct CellarExecutable {
-    wine_path: PathBuf,
-    wine_prefix: PathBuf,
-    executable: PathBuf,
-
-    env: EnvVars,
-    args: Vec<String>,
-    workdir: PathBuf,
+impl AsRef<CellarConfig> for WineCellar {
+    fn as_ref(&self) -> &CellarConfig {
+        &self.config
+    }
 }
 
-// TODO Remove after implementation
-#[allow(dead_code)]
-impl CellarExecutable {
-    fn new(wine_path: PathBuf, wine_prefix: PathBuf, executable: PathBuf) -> Self {
-        Self {
-            wine_path,
-            wine_prefix,
-            executable,
-
-            env: EnvVars::new(),
-            args: Vec::new(),
-            workdir: std::env::current_dir().unwrap(),
-        }
-    }
-
-    pub fn env(mut self, key: String, value: String) -> Self {
-        self.env.insert(key, value);
-        self
-    }
-
-    pub fn envs(mut self, vars: EnvVars) -> Self {
-        self.env.extend(vars);
-        self
-    }
-
-    pub fn arg(mut self, arg: String) -> Self {
-        self.args.push(arg);
-        self
-    }
-
-    pub fn args(mut self, args: Vec<String>) -> Self {
-        self.args.extend(args);
-        self
-    }
-
-    pub fn workdir(mut self, workdir: PathBuf) -> Self {
-        self.workdir = workdir;
-        self
-    }
-
-    pub fn run(self) -> Result<Child> {
-        Command::new(self.wine_path)
-            .env("WINEPREFIX", self.wine_prefix)
-            .envs(self.env)
-            .arg(self.executable)
-            .args(self.args)
-            .current_dir(self.workdir)
-            .spawn()
-            .context(ChildExecSnafu)
+impl AsMut<CellarConfig> for WineCellar {
+    fn as_mut(&mut self) -> &mut CellarConfig {
+        &mut self.config
     }
 }
 

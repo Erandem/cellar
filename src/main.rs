@@ -1,14 +1,18 @@
 mod cellar;
+mod sandbox;
 
 use cellar::WineCellar;
-use clap::{App, Arg, ArgGroup};
+use clap::{App, AppSettings, Arg, ArgGroup};
+use flexi_logger::Logger;
+use log::{error, info};
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-fn main() -> cellar::Result<()> {
-    let matches = App::new("winecellar")
+fn app<'a>() -> App<'a> {
+    App::new("winecellar")
         .version("1.0")
         .about("A toy for wine management without system dependence")
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .arg(
             Arg::new("path")
                 .about("The path to the wine cellar")
@@ -48,7 +52,7 @@ fn main() -> cellar::Result<()> {
                         .takes_value(true),
                 )
                 // for all arguments to be passed to the executable
-                .setting(clap::AppSettings::TrailingVarArg)
+                .setting(AppSettings::TrailingVarArg)
                 .arg(
                     Arg::new("exec-arguments")
                         .raw(true)
@@ -57,55 +61,80 @@ fn main() -> cellar::Result<()> {
         )
         .subcommand(App::new("kill"))
         .subcommand(App::new("list-env").about("Lists environmental variables"))
-        .get_matches();
+        .subcommand(App::new("enable-sandbox").about("Enable sandboxing for this prefix"))
+}
+
+fn main() -> cellar::Result<()> {
+    Logger::try_with_str("debug").unwrap().start().unwrap();
+
+    let matches = app().get_matches();
 
     let path = matches.value_of_t_or_exit::<PathBuf>("path");
     let mut cellar = match WineCellar::open(&path) {
         Ok(cellar) => cellar,
-        Err(_) => WineCellar::create(&path)?,
+        Err(_) => {
+            info!("Failed to find winecellar! Creating it...");
+            WineCellar::create(&path)?
+        }
     };
 
     match matches.subcommand() {
+        Some(("enable-sandbox", _args)) => todo!("sandboxing control functions"),
+
         Some(("set-env", args)) => {
             let key: String = args.value_of_t_or_exit("key");
             let value: String = args.value_of_t_or_exit("value");
 
             cellar.set_env_var(key.clone(), value.clone());
             cellar.save_config()?;
-            println!("Set \"{}\" to \"{}\"", key, value);
+            info!("Set {} to {}", key, value);
         }
 
         Some(("list-env", _)) => cellar
             .get_env_vars()
             .iter()
-            .for_each(|(k, v)| println!("{}={}", k, v)),
+            .for_each(|(k, v)| info!("{}={}", k, v)),
 
         Some(("exec", args)) => {
             let exec_path: PathBuf;
 
             if args.is_present("rel-c") {
                 let c_drive_path = cellar.get_c_drive_path();
-                println!("Resolving executable relative to {:?}", c_drive_path);
+                info!("--rel-c flag specified! Resolving relative to C:\\\\");
 
                 let exec: PathBuf = args.value_of_t_or_exit("executable");
                 exec_path = c_drive_path.join(exec);
             } else {
                 // absolute path implied
-                println!("No path relativity specified! Using default");
-                exec_path = std::fs::canonicalize(args.value_of_t_or_exit::<PathBuf>("executable"))
-                    .unwrap();
+                info!("No path relativity specified! Assuming relative");
+                let path = std::fs::canonicalize(args.value_of_t_or_exit::<PathBuf>("executable"));
+
+                if path.is_err() {
+                    info!("Failed to resolve path! Letting wine handle it");
+                    exec_path = args.value_of_t_or_exit("executable");
+                } else {
+                    exec_path = path.unwrap();
+                }
             }
 
             let workdir: PathBuf;
 
+            info!("Launching executable with path {:?}", exec_path);
+
             if args.is_present("workdir") {
                 workdir = args.value_of_t_or_exit("workdir");
             } else {
-                workdir = exec_path.parent().unwrap().to_path_buf();
+                workdir = exec_path
+                    .parent()
+                    .filter(|x| x != &Path::new(""))
+                    .map(|x| x.to_path_buf())
+                    .or(std::env::current_dir().ok())
+                    .unwrap();
             }
 
-            println!("Running {:?} with wine version {}", exec_path, "TODO");
-            println!("Using workdir {:?}", workdir);
+            // TODO Add wine version information
+            info!("Using wine version {}", "todo");
+            info!("Using work directory {:?}", workdir);
 
             // direct path expected
             let exec_args = args
@@ -115,13 +144,19 @@ fn main() -> cellar::Result<()> {
                 .map(|x| x.to_string())
                 .collect::<Vec<String>>();
 
-            println!("{:?}", exec_args);
+            info!("passing arguments {:?} to the provided binary", exec_args);
 
-            cellar
-                .exec_builder(exec_path)
+            let cellar_result = cellar
+                .run()
+                .arg(exec_path)
                 .args(exec_args)
-                .workdir(workdir)
-                .run()?;
+                .current_dir(workdir)
+                .spawn();
+
+            match cellar_result {
+                Ok(x) => info!("Cellar started! {:#?}", x),
+                Err(e) => error!("Cellar failed to start! {:#?}", e),
+            }
         }
 
         Some(("kill", _)) => {
@@ -129,8 +164,8 @@ fn main() -> cellar::Result<()> {
             cellar.kill();
         }
 
-        Some((name, _)) => println!("Unknown or unimplemented command {}", name),
-        None => panic!("required argument not passed"),
+        Some((name, _)) => error!("Unknown or unimplemented command {}", name),
+        None => error!("required argument not passed"),
     }
 
     Ok(())
