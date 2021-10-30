@@ -51,6 +51,9 @@ fn app<'a>() -> App<'a> {
                         .about("Working directory of the executable")
                         .takes_value(true),
                 )
+                .group(ArgGroup::new("wait-type").arg("wait").arg("no-wait"))
+                .arg(Arg::new("no-wait").about("Does not wait for cellar before exiting"))
+                .arg(Arg::new("wait").about("Wait for cellar to exit").short('w'))
                 // for all arguments to be passed to the executable
                 .setting(AppSettings::TrailingVarArg)
                 .arg(
@@ -61,7 +64,6 @@ fn app<'a>() -> App<'a> {
         )
         .subcommand(App::new("kill"))
         .subcommand(App::new("list-env").about("Lists environmental variables"))
-        .subcommand(App::new("enable-sandbox").about("Enable sandboxing for this prefix"))
 }
 
 fn main() -> cellar::Result<()> {
@@ -146,16 +148,27 @@ fn main() -> cellar::Result<()> {
 
             info!("passing arguments {:?} to the provided binary", exec_args);
 
-            let cellar_result = cellar
+            let mut cellar_result = cellar
                 .run()
                 .arg(exec_path)
                 .args(exec_args)
                 .current_dir(workdir)
-                .spawn();
+                .spawn()
+                .unwrap();
 
-            match cellar_result {
-                Ok(x) => info!("Cellar started! {:#?}", x),
-                Err(e) => error!("Cellar failed to start! {:#?}", e),
+            if args.is_present("no-wait") {
+                info!("\"no-wait\" flag specified! Exiting...");
+            } else {
+                if args.is_present("wait") {
+                    info!("Wait arg specified! Waiting...");
+                } else {
+                    info!("No wait argument specified! Defaulting to \"--wait\"");
+                }
+
+                match cellar_result.wait() {
+                    Ok(ok) => info!("Process exited! {:#?}", ok),
+                    Err(e) => error!("Failed to exit! {:#?}", e),
+                }
             }
         }
 
