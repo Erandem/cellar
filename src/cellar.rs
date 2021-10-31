@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::str::FromStr;
 
 use crate::sandbox::FirejailLauncher;
 
@@ -209,5 +210,19 @@ pub enum WineSync {
 impl Default for WineSync {
     fn default() -> WineSync {
         WineSync::AUTO
+    }
+}
+
+impl FromStr for WineSync {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Error> {
+        match s.to_ascii_uppercase() {
+            "AUTO" => Some(WineSync::AUTO),
+            "ESYNC" => Some(WineSync::ESYNC),
+            "FSYNC" => Some(WineSync::FSYNC),
+            "WINESYNC" => Some(WineSync::WINESYNC),
+            _ => Err(()),
+        }
     }
 }
