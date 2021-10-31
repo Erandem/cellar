@@ -213,15 +213,16 @@ impl Default for WineSync {
     }
 }
 
+// TODO Proper error type
 impl FromStr for WineSync {
     type Err = ();
 
-    fn from_str(s: &str) -> Result<Self, Self::Error> {
-        match s.to_ascii_uppercase() {
-            "AUTO" => Some(WineSync::AUTO),
-            "ESYNC" => Some(WineSync::ESYNC),
-            "FSYNC" => Some(WineSync::FSYNC),
-            "WINESYNC" => Some(WineSync::WINESYNC),
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_uppercase().as_ref() {
+            "AUTO" => Ok(WineSync::AUTO),
+            "ESYNC" => Ok(WineSync::ESYNC),
+            "FSYNC" => Ok(WineSync::FSYNC),
+            "WINESYNC" => Ok(WineSync::WINESYNC),
             _ => Err(()),
         }
     }
