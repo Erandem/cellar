@@ -1,3 +1,4 @@
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use snafu::prelude::*;
 
@@ -41,7 +42,7 @@ pub enum CellarError {
 #[derive(Debug)]
 pub struct WineCellar {
     path: PathBuf,
-    config: CellarConfig,
+    pub config: CellarConfig,
 }
 
 impl WineCellar {
@@ -98,6 +99,13 @@ impl WineCellar {
         cmd.arg(self.wine_bin_path());
         cmd.env("WINEPREFIX", self.wine_prefix_path());
         cmd.envs(self.get_env_vars());
+
+        match self.config.sync {
+            WineSync::AUTO => cmd.env("WINEESYNC", "1").env("WINEFSYNC", "1"),
+            WineSync::ESYNC => cmd.env("WINEESYNC", "1"),
+            WineSync::FSYNC => cmd.env("WINEFSYNC", "1"),
+            WineSync::WINESYNC => todo!("winesync"),
+        };
 
         cmd
     }
@@ -172,7 +180,34 @@ impl AsMut<CellarConfig> for WineCellar {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CellarConfig {
+    pub sandbox: bool,
+    pub sync: WineSync,
     extra_env: HashMap<String, String>,
+}
+
+impl Default for CellarConfig {
+    fn default() -> CellarConfig {
+        CellarConfig {
+            sandbox: true,
+            sync: WineSync::default(),
+            extra_env: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum WineSync {
+    /// Enables both ESYNC and FSYNC for fallback
+    AUTO,
+    ESYNC,
+    FSYNC,
+    WINESYNC,
+}
+
+impl Default for WineSync {
+    fn default() -> WineSync {
+        WineSync::AUTO
+    }
 }

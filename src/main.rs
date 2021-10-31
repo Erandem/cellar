@@ -64,6 +64,7 @@ fn app<'a>() -> App<'a> {
         )
         .subcommand(App::new("kill"))
         .subcommand(App::new("list-env").about("Lists environmental variables"))
+        .subcommand(App::new("cfg-list").about("Lists settings in the sandbox"))
 }
 
 fn main() -> cellar::Result<()> {
@@ -81,7 +82,16 @@ fn main() -> cellar::Result<()> {
     };
 
     match matches.subcommand() {
-        Some(("enable-sandbox", _args)) => todo!("sandboxing control functions"),
+        Some(("cfg-list", _)) => {
+            let serialized = serde_json::to_value(cellar.config).unwrap();
+            info!("Settings");
+
+            serialized
+                .as_object()
+                .unwrap()
+                .into_iter()
+                .for_each(|x| info!("- {} = {}", x.0, x.1));
+        }
 
         Some(("set-env", args)) => {
             let key: String = args.value_of_t_or_exit("key");
