@@ -2,9 +2,10 @@ mod cellar;
 mod sandbox;
 
 use cellar::WineCellar;
+use cellar::WineSync;
 use clap::{App, AppSettings, Arg, ArgGroup};
 use flexi_logger::Logger;
-use log::{error, info};
+use log::{error, info, warn};
 
 use std::path::{Path, PathBuf};
 
@@ -65,6 +66,12 @@ fn app<'a>() -> App<'a> {
         .subcommand(App::new("kill"))
         .subcommand(App::new("list-env").about("Lists environmental variables"))
         .subcommand(App::new("cfg-list").about("Lists settings in the sandbox"))
+        .subcommand(
+            App::new("cfg-set")
+                .about("Set settings")
+                .arg(Arg::new("key").required(true).possible_value("sync"))
+                .arg(Arg::new("value").required(true)),
+        )
 }
 
 fn main() -> cellar::Result<()> {
@@ -76,7 +83,7 @@ fn main() -> cellar::Result<()> {
     let mut cellar = match WineCellar::open(&path) {
         Ok(cellar) => cellar,
         Err(_) => {
-            info!("Failed to find winecellar! Creating it...");
+            warn!("Failed to find winecellar! Creating it...");
             WineCellar::create(&path)?
         }
     };
@@ -92,6 +99,17 @@ fn main() -> cellar::Result<()> {
                 .into_iter()
                 .for_each(|x| info!("- {} = {}", x.0, x.1));
         }
+
+        Some(("cfg-set", args)) => match args.value_of_t_or_exit::<String>("key").as_ref() {
+            "sync" => {
+                let sync_type: WineSync = args.value_of_t_or_exit("value");
+                info!("Setting \"sync\" to \"{:#?}\"", sync_type);
+
+                cellar.config.sync = sync_type;
+                cellar.save_config().unwrap();
+            }
+            unknown => error!("Unknown key \"{}\"", unknown),
+        },
 
         Some(("set-env", args)) => {
             let key: String = args.value_of_t_or_exit("key");

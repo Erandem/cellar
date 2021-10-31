@@ -215,7 +215,7 @@ impl Default for WineSync {
 
 // TODO Proper error type
 impl FromStr for WineSync {
-    type Err = ();
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_uppercase().as_ref() {
@@ -223,7 +223,7 @@ impl FromStr for WineSync {
             "ESYNC" => Ok(WineSync::ESYNC),
             "FSYNC" => Ok(WineSync::FSYNC),
             "WINESYNC" => Ok(WineSync::WINESYNC),
-            _ => Err(()),
+            _ => Err(format!("Unknown sync type \"{}\"", s)),
         }
     }
 }
