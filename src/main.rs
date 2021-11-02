@@ -1,4 +1,5 @@
 mod cellar;
+mod nsjail;
 mod sandbox;
 
 use cellar::WineCellar;
