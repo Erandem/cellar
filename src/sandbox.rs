@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 use std::process::Command;
 
+use relative_path::RelativePathBuf;
+
 #[derive(Debug)]
 pub struct FirejailLauncher {
     firejail_exec: PathBuf,
@@ -167,4 +169,12 @@ impl Default for X11Sandbox {
     fn default() -> X11Sandbox {
         Self::DEFAULT
     }
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub enum WineType {
+    SystemDefault,
+    Embedded(RelativePathBuf),
+    System(PathBuf),
 }
