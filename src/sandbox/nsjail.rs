@@ -106,6 +106,12 @@ impl Into<NSSymlink> for (PathBuf, PathBuf) {
     }
 }
 
+impl Into<NSSymlink> for (&'static str, &'static str) {
+    fn into(self) -> NSSymlink {
+        NSSymlink::new(PathBuf::from(self.0), PathBuf::from(self.1))
+    }
+}
+
 pub struct NSJail {
     mounts: Vec<NSMount>,
     links: Vec<NSSymlink>,
