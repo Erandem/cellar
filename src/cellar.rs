@@ -2,6 +2,8 @@ use log::{error, info};
 use serde::{Deserialize, Serialize};
 use snafu::prelude::*;
 
+use relative_path::RelativePathBuf;
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -226,4 +228,12 @@ impl FromStr for WineSync {
             _ => Err(format!("Unknown sync type \"{}\"", s)),
         }
     }
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub enum WineType {
+    SystemDefault,
+    Embedded(RelativePathBuf),
+    System(PathBuf),
 }

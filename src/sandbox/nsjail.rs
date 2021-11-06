@@ -108,11 +108,14 @@ impl Into<NSSymlink> for (PathBuf, PathBuf) {
 
 pub struct NSJail {
     mounts: Vec<NSMount>,
+    links: Vec<NSSymlink>,
+
     env: HashMap<String, String>,
     user: u64,
     group: u64,
 }
 
+#[allow(dead_code)]
 impl NSJail {
     pub fn command(self) -> Command {
         let mut cmd = Command::new("/usr/bin/nsjail");
@@ -140,12 +143,19 @@ impl NSJail {
         self.mounts.push(mount);
         self
     }
+
+    pub fn symlink<T: Into<NSSymlink>>(&mut self, link: T) -> &mut NSJail {
+        self.links.push(link.into());
+        self
+    }
 }
 
 impl Default for NSJail {
     fn default() -> NSJail {
         NSJail {
             mounts: Vec::new(),
+            links: Vec::new(),
+
             env: HashMap::new(),
             user: 1000,
             group: 1000,
