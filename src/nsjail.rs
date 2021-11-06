@@ -84,12 +84,25 @@ pub enum NSMountType {
     TmpFs { dest: PathBuf },
 }
 
-impl NSMountType {
-    pub fn dest(&self) -> Option<&Path> {
-        match &self {
-            NSMountType::BindMount { dest, .. } => Some(dest),
-            NSMountType::TmpFs { dest, .. } => Some(dest),
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NSSymlink {
+    src: PathBuf,
+    dest: PathBuf,
+}
+
+impl NSSymlink {
+    pub fn new<T: Into<PathBuf>>(src: T, dest: T) -> NSSymlink {
+        NSSymlink {
+            src: src.into(),
+            dest: dest.into(),
         }
+    }
+}
+
+/// Takes the input as (src: PathBuf, dest: PathBuf)
+impl Into<NSSymlink> for (PathBuf, PathBuf) {
+    fn into(self) -> NSSymlink {
+        NSSymlink::new(self.0, self.1)
     }
 }
 
