@@ -127,6 +127,8 @@ impl NSJail {
                 cmd.arg(x.0).arg(x.1);
             });
 
+        // TODO Make it so we don't gotta do this... somehow
+        cmd.arg("--keep_env");
         cmd.envs(self.env);
 
         // Make sure that the caller can pass arguments without worry
