@@ -189,6 +189,19 @@ impl NSJail {
         self.links
             .into_iter()
             .map(NSSymlink::into_proto_text)
+            .for_each(|x| {
+                f.write_all(&x).unwrap();
+            });
+
+        self.env.into_iter().map(NSEnvVar::to_arg).for_each(|x| {
+            cmd.arg(x.0).arg(x.1);
+        });
+
+        // TODO Make hostname support stuff work properly
+        cmd.arg("--hostname").arg("vanilla");
+        cmd.arg("--disable_rlimits");
+        cmd.arg("--disable_no_new_privs");
+        cmd.arg("--keep_caps");
 
         // Make sure that the caller can pass arguments without worry
         cmd.arg("--");
