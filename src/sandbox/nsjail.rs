@@ -145,6 +145,11 @@ impl NSJail {
         cmd
     }
 
+    pub fn env<T: Into<NSEnvVar>>(&mut self, var: T) -> &mut NSJail {
+        self.env.push(var.into());
+        self
+    }
+
     pub fn mount(&mut self, mount: NSMount) -> &mut NSJail {
         self.mounts.push(mount);
         self
@@ -166,5 +171,41 @@ impl Default for NSJail {
             user: 1000,
             group: 1000,
         }
+    }
+}
+
+pub enum NSEnvVar {
+    Set(String, String),
+    Keep(String),
+}
+
+impl NSEnvVar {
+    fn to_arg(self) -> (&'static str, String) {
+        match self {
+            NSEnvVar::Keep(s) => ("--env", s),
+            NSEnvVar::Set(key, value) => ("--env", format!("{}={}", key, value)),
+        }
+    }
+}
+
+impl Into<NSEnvVar> for String {
+    fn into(self) -> NSEnvVar {
+        NSEnvVar::Keep(self)
+    }
+}
+
+impl Into<NSEnvVar> for &'static str {
+    fn into(self) -> NSEnvVar {
+        self.to_string().into()
+    }
+}
+
+impl<K, V> Into<NSEnvVar> for (K, V)
+where
+    K: Into<String> + Sized,
+    V: Into<String> + Sized,
+{
+    fn into(self) -> NSEnvVar {
+        NSEnvVar::Set(self.0.into(), self.1.into())
     }
 }
