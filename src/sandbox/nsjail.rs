@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -8,6 +10,7 @@ pub struct NSMount {
     r#type: NSMountType,
     readwrite: bool,
     mandatory: bool,
+    noexec: bool,
 }
 
 #[allow(dead_code)]
@@ -20,7 +23,7 @@ impl NSMount {
     }
 
     /// Creates a new bindmount that is both readwrite and mandatory
-    pub fn bind<T: Into<PathBuf>>(src: T, dest: T) -> NSMount {
+    pub fn bind<T: Into<PathBuf>, E: Into<PathBuf>>(src: T, dest: E) -> NSMount {
         NSMount {
             r#type: NSMountType::BindMount {
                 src: src.into(),
@@ -29,6 +32,7 @@ impl NSMount {
 
             readwrite: true,
             mandatory: true,
+            noexec: false,
         }
     }
 
@@ -38,6 +42,7 @@ impl NSMount {
 
             readwrite: true,
             mandatory: true,
+            noexec: false,
         }
     }
 
@@ -71,10 +76,38 @@ impl NSMount {
                     "--bindmount_ro"
                 };
 
+                //let arg = "--mount";
+                //let opts = "";
+                //let map = format!("{}:{}::ro", src.display(), dest.display());
+
                 (arg, map)
             }
             NSMountType::TmpFs { dest } => ("-m", format!("none:{}:tmpfs:{}", dest.display(), "")),
         }
+    }
+
+    fn into_proto_text(self) -> Vec<u8> {
+        let mut f = Vec::new();
+        write!(&mut f, "mount {{ ");
+        write!(&mut f, "rw: {} ", self.readwrite);
+        write!(&mut f, "mandatory: {} ", self.mandatory);
+        write!(&mut f, "noexec: {} ", self.noexec);
+
+        match self.r#type {
+            NSMountType::BindMount { src, dest } => {
+                write!(&mut f, "src: \"{}\" ", src.display());
+                write!(&mut f, "dst: \"{}\" ", dest.display());
+                write!(&mut f, "is_bind: true ");
+            }
+            NSMountType::TmpFs { dest } => {
+                write!(&mut f, "dst: \"{}\" ", dest.display());
+                write!(&mut f, "fstype: \"tmpfs\" ");
+            }
+        }
+
+        write!(&mut f, "}}\n");
+
+        f
     }
 }
 
@@ -97,6 +130,16 @@ impl NSSymlink {
             dest: dest.into(),
         }
     }
+
+    fn into_proto_text(self) -> Vec<u8> {
+        let mut f = Vec::new();
+        write!(&mut f, "mount {{ ");
+        write!(&mut f, "src: \"{}\" ", self.src.display());
+        write!(&mut f, "dst: \"{}\" ", self.dest.display());
+        write!(&mut f, "is_symlink: true ");
+        write!(&mut f, "}}\n");
+        f
+    }
 }
 
 /// Takes the input as (src: PathBuf, dest: PathBuf)
@@ -116,7 +159,7 @@ pub struct NSJail {
     mounts: Vec<NSMount>,
     links: Vec<NSSymlink>,
 
-    env: HashMap<String, String>,
+    env: Vec<NSEnvVar>,
     user: u64,
     group: u64,
 }
@@ -125,20 +168,27 @@ pub struct NSJail {
 impl NSJail {
     pub fn command(self) -> Command {
         let mut cmd = Command::new("/usr/bin/nsjail");
+        let mut f = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open("./jail.proto")
+            .unwrap();
 
+        cmd.arg("--config").arg("./jail.proto");
         cmd.arg("--user").arg(self.user.to_string());
         cmd.arg("--group").arg(self.group.to_string());
 
         self.mounts
             .into_iter()
-            .map(|x| x.to_write_arg())
+            .map(NSMount::into_proto_text)
             .for_each(|x| {
-                cmd.arg(x.0).arg(x.1);
+                f.write_all(&x).unwrap();
             });
 
-        // TODO Make it so we don't gotta do this... somehow
-        cmd.arg("--keep_env");
-        cmd.envs(self.env);
+        self.links
+            .into_iter()
+            .map(NSSymlink::into_proto_text)
 
         // Make sure that the caller can pass arguments without worry
         cmd.arg("--");
@@ -167,9 +217,9 @@ impl Default for NSJail {
             mounts: Vec::new(),
             links: Vec::new(),
 
-            env: HashMap::new(),
+            env: Vec::new(),
             user: 1000,
-            group: 1000,
+            group: 984,
         }
     }
 }
