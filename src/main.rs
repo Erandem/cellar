@@ -176,13 +176,15 @@ fn main() -> cellar::Result<()> {
 
             info!("passing arguments {:?} to the provided binary", exec_args);
 
-            let mut cellar_result = cellar
-                .run()
-                .arg(exec_path)
-                .args(exec_args)
-                .current_dir(workdir)
-                .spawn()
-                .unwrap();
+            /* let mut cellar_result = cellar
+            .run_nsjail()
+            .arg(exec_path)
+            .args(exec_args)
+            .current_dir(workdir)
+            .spawn()
+            .unwrap(); */
+
+            let mut cellar_result = cellar.run_nsjail().spawn().unwrap();
 
             if args.is_present("no-wait") {
                 info!("\"no-wait\" flag specified! Exiting...");
