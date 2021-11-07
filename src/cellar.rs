@@ -113,6 +113,56 @@ impl WineCellar {
         cmd
     }
 
+    /// Returns a `Command` that will start wine inside of nsjail
+    pub fn run_nsjail(&self) -> Command {
+        use crate::sandbox::{NSJail, NSMount};
+
+        let mut jail = NSJail::default();
+
+        // Setting up all the annoying /usr mounts
+        jail.mount(NSMount::readonly("/usr", "/usr"))
+            .symlink(("/usr/lib", "/lib"))
+            .symlink(("/usr/lib", "/lib64"))
+            .symlink(("/usr/bin", "/bin"))
+            .symlink(("/usr/bin", "/sbin"));
+
+        // system required mounts
+        jail.mount(NSMount::temp("/tmp"))
+            .mount(NSMount::temp("/dev/shm"))
+            .mount(NSMount::bind("/dev/random", "/dev/random"))
+            .mount(NSMount::bind("/dev/urandom", "/dev/urandom"))
+            .mount(NSMount::readonly("/proc", "/proc"))
+            .mount(NSMount::readonly(
+                "/etc/fonts/fonts.conf",
+                "/etc/fonts/fonts.conf",
+            ));
+
+        jail.mount(NSMount::temp("/home"))
+            .mount(NSMount::bind("/home/me/Builds/winecellar/a", "/wineprefix"))
+            .mount(NSMount::bind("/home/me/.Xauthority", "/home/.Xauthority"))
+            .mount(NSMount::bind("/tmp/.X11-unix", "/tmp/.X11-unix"));
+
+        jail.env(("WINEPREFIX", "/wineprefix"))
+            .env(("HOME", "/home"))
+            .env("DISPLAY");
+
+        let mut cmd = jail.command();
+
+        cmd.arg("/usr/bin/bash")
+            .env("HOME", "/home")
+            .env("WINEPREFIX", "/wineprefix")
+            .envs(self.get_env_vars());
+
+        match self.config.sync {
+            WineSync::AUTO => cmd.env("WINEESYNC", "1").env("WINEFSYNC", "1"),
+            WineSync::ESYNC => cmd.env("WINEESYNC", "1"),
+            WineSync::FSYNC => cmd.env("WINEFSYNC", "1"),
+            WineSync::WINESYNC => todo!("winesync"),
+        };
+
+        cmd
+    }
+
     pub fn kill(&self) {
         Command::new("wineserver")
             .arg("-k")
