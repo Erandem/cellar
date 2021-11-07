@@ -5,6 +5,11 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// We write to Vec<u8>s a lot, and that trait likes to return an error. This type
+/// is, sort of, a way to make that easier for us to handle since we can assume that
+/// it is always okay.
+type VecWrite = Result<Vec<u8>, std::io::Error>;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NSMount {
     r#type: NSMountType,
@@ -13,7 +18,6 @@ pub struct NSMount {
     noexec: bool,
 }
 
-#[allow(dead_code)]
 impl NSMount {
     /// Creates a new bindmount with `readwrite` set to `false`
     pub fn readonly<T: Into<PathBuf>>(src: T, dest: T) -> NSMount {
