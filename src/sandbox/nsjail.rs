@@ -86,28 +86,28 @@ impl NSMount {
         }
     }
 
-    fn into_proto_text(self) -> Vec<u8> {
+    fn into_proto_text(self) -> VecWrite {
         let mut f = Vec::new();
-        write!(&mut f, "mount {{ ");
-        write!(&mut f, "rw: {} ", self.readwrite);
-        write!(&mut f, "mandatory: {} ", self.mandatory);
-        write!(&mut f, "noexec: {} ", self.noexec);
+        write!(&mut f, "mount {{ ")?;
+        write!(&mut f, "rw: {} ", self.readwrite)?;
+        write!(&mut f, "mandatory: {} ", self.mandatory)?;
+        write!(&mut f, "noexec: {} ", self.noexec)?;
 
         match self.r#type {
             NSMountType::BindMount { src, dest } => {
-                write!(&mut f, "src: \"{}\" ", src.display());
-                write!(&mut f, "dst: \"{}\" ", dest.display());
-                write!(&mut f, "is_bind: true ");
+                write!(&mut f, "src: \"{}\" ", src.display())?;
+                write!(&mut f, "dst: \"{}\" ", dest.display())?;
+                write!(&mut f, "is_bind: true ")?;
             }
             NSMountType::TmpFs { dest } => {
-                write!(&mut f, "dst: \"{}\" ", dest.display());
-                write!(&mut f, "fstype: \"tmpfs\" ");
+                write!(&mut f, "dst: \"{}\" ", dest.display())?;
+                write!(&mut f, "fstype: \"tmpfs\" ")?;
             }
         }
 
-        write!(&mut f, "}}\n");
+        write!(&mut f, "}}\n")?;
 
-        f
+        Ok(f)
     }
 }
 
@@ -131,14 +131,14 @@ impl NSSymlink {
         }
     }
 
-    fn into_proto_text(self) -> Vec<u8> {
+    fn into_proto_text(self) -> VecWrite {
         let mut f = Vec::new();
-        write!(&mut f, "mount {{ ");
-        write!(&mut f, "src: \"{}\" ", self.src.display());
-        write!(&mut f, "dst: \"{}\" ", self.dest.display());
-        write!(&mut f, "is_symlink: true ");
-        write!(&mut f, "}}\n");
-        f
+        write!(&mut f, "mount {{ ")?;
+        write!(&mut f, "src: \"{}\" ", self.src.display())?;
+        write!(&mut f, "dst: \"{}\" ", self.dest.display())?;
+        write!(&mut f, "is_symlink: true ")?;
+        write!(&mut f, "}}\n")?;
+        Ok(f)
     }
 }
 
@@ -182,6 +182,7 @@ impl NSJail {
         self.mounts
             .into_iter()
             .map(NSMount::into_proto_text)
+            .map(Result::unwrap)
             .for_each(|x| {
                 f.write_all(&x).unwrap();
             });
@@ -189,6 +190,7 @@ impl NSJail {
         self.links
             .into_iter()
             .map(NSSymlink::into_proto_text)
+            .map(Result::unwrap)
             .for_each(|x| {
                 f.write_all(&x).unwrap();
             });
