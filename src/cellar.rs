@@ -11,6 +11,7 @@ use std::process::Command;
 use std::str::FromStr;
 
 use crate::sandbox::FirejailLauncher;
+use crate::sandbox::{NSJail, NSMount};
 
 pub type Result<T, E = CellarError> = std::result::Result<T, E>;
 pub type EnvVars = HashMap<String, String>;
@@ -113,10 +114,7 @@ impl WineCellar {
         cmd
     }
 
-    /// Returns a `Command` that will start wine inside of nsjail
-    pub fn run_nsjail(&self) -> Command {
-        use crate::sandbox::{NSJail, NSMount};
-
+    pub fn nsjail(&self) -> NSJail {
         let mut jail = NSJail::default();
 
         // Setting up all the annoying /usr mounts
@@ -131,7 +129,6 @@ impl WineCellar {
             .mount(NSMount::temp("/dev/shm"))
             .mount(NSMount::bind("/dev/random", "/dev/random"))
             .mount(NSMount::bind("/dev/urandom", "/dev/urandom"))
-            .mount(NSMount::readonly("/proc", "/proc"))
             .mount(NSMount::readonly(
                 "/etc/fonts/fonts.conf",
                 "/etc/fonts/fonts.conf",
@@ -146,19 +143,26 @@ impl WineCellar {
             .env(("HOME", "/home"))
             .env("DISPLAY");
 
+        match self.config.sync {
+            WineSync::AUTO => jail.env(("WINEESYNC", "1")).env(("WINEFSYNC", "1")),
+            WineSync::ESYNC => jail.env(("WINEESYNC", "1")),
+            WineSync::FSYNC => jail.env(("WINEFSYNC", "1")),
+            WineSync::WINESYNC => todo!("implement winesync"),
+        };
+
+        self.get_env_vars().into_iter().for_each(|x| {
+            println!("{} {}", x.0, x.1);
+            jail.env((x.0, x.1));
+        });
+
+        jail
+    }
+
+    pub fn run_nsjail(&self) -> Command {
+        let mut jail = self.nsjail();
         let mut cmd = jail.command();
 
-        cmd.arg("/usr/bin/bash")
-            .env("HOME", "/home")
-            .env("WINEPREFIX", "/wineprefix")
-            .envs(self.get_env_vars());
-
-        match self.config.sync {
-            WineSync::AUTO => cmd.env("WINEESYNC", "1").env("WINEFSYNC", "1"),
-            WineSync::ESYNC => cmd.env("WINEESYNC", "1"),
-            WineSync::FSYNC => cmd.env("WINEFSYNC", "1"),
-            WineSync::WINESYNC => todo!("winesync"),
-        };
+        cmd.arg("/usr/bin/wine");
 
         cmd
     }

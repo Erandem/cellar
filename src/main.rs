@@ -31,6 +31,7 @@ fn app<'a>() -> App<'a> {
                 .arg(Arg::new("key").required(true).takes_value(true))
                 .arg(Arg::new("value").required(true).takes_value(true)),
         )
+        .subcommand(App::new("shell").about("Drops you into a new bash shell in the jail"))
         .subcommand(
             App::new("exec")
                 .about("Allows you to run programs")
@@ -124,6 +125,10 @@ fn main() -> cellar::Result<()> {
             .get_env_vars()
             .iter()
             .for_each(|(k, v)| info!("{}={}", k, v)),
+
+        Some(("shell", _)) => {
+            cellar.nsjail().command().arg("/bin/bash").status().unwrap();
+        }
 
         Some(("exec", args)) => {
             let exec_path: PathBuf;
