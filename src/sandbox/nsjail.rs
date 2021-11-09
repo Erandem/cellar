@@ -19,6 +19,15 @@ pub struct NSMount {
 }
 
 impl NSMount {
+    pub fn proc() -> NSMount {
+        NSMount {
+            r#type: NSMountType::ProcFs,
+            readwrite: false,
+            mandatory: true,
+            noexec: true,
+        }
+    }
+
     /// Creates a new bindmount with `readwrite` set to `false`
     pub fn readonly<T: Into<PathBuf>>(src: T, dest: T) -> NSMount {
         let mut s = Self::bind(src, dest);
@@ -107,6 +116,10 @@ impl NSMount {
                 write!(&mut f, "dst: \"{}\" ", dest.display())?;
                 write!(&mut f, "fstype: \"tmpfs\" ")?;
             }
+            NSMountType::ProcFs => {
+                write!(&mut f, "dst: \"/proc\"")?;
+                write!(&mut f, "fstype: \"proc\"")?;
+            }
         }
 
         write!(&mut f, "}}\n")?;
@@ -119,6 +132,7 @@ impl NSMount {
 pub enum NSMountType {
     BindMount { src: PathBuf, dest: PathBuf },
     TmpFs { dest: PathBuf },
+    ProcFs,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -233,7 +247,7 @@ impl NSJail {
 impl Default for NSJail {
     fn default() -> NSJail {
         NSJail {
-            mounts: Vec::new(),
+            mounts: vec![NSMount::proc()],
             links: Vec::new(),
 
             env: Vec::new(),
