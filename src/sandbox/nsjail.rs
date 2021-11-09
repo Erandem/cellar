@@ -79,26 +79,6 @@ impl NSMount {
         self
     }
 
-    fn to_write_arg(&self) -> (&'static str, String) {
-        match &self.r#type {
-            NSMountType::BindMount { src, dest } => {
-                let map = format!("{}:{}", src.display(), dest.display());
-                let arg = if self.readwrite {
-                    "--bindmount"
-                } else {
-                    "--bindmount_ro"
-                };
-
-                //let arg = "--mount";
-                //let opts = "";
-                //let map = format!("{}:{}::ro", src.display(), dest.display());
-
-                (arg, map)
-            }
-            NSMountType::TmpFs { dest } => ("-m", format!("none:{}:tmpfs:{}", dest.display(), "")),
-        }
-    }
-
     fn into_proto_text(self) -> VecWrite {
         let mut f = Vec::new();
         write!(&mut f, "mount {{ ")?;
