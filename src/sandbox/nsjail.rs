@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 /// We write to Vec<u8>s a lot, and that trait likes to return an error. This type
@@ -59,21 +59,25 @@ impl NSMount {
         }
     }
 
+    #[allow(dead_code)]
     pub fn make_readonly(&mut self) -> &mut NSMount {
         self.readwrite = false;
         self
     }
 
+    #[allow(dead_code)]
     pub fn make_readwrite(&mut self) -> &mut NSMount {
         self.readwrite = true;
         self
     }
 
+    #[allow(dead_code)]
     pub fn mandatory(&mut self) -> &mut NSMount {
         self.mandatory = true;
         self
     }
 
+    #[allow(dead_code)]
     pub fn not_mandatory(&mut self) -> &mut NSMount {
         self.mandatory = false;
         self
