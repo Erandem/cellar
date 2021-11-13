@@ -1,4 +1,9 @@
+#![allow(unused_imports)]
+pub mod bubblewrap;
 pub mod firejail;
+
+pub use self::bubblewrap::{BubLauncher, BubMount};
+pub use self::firejail::{FirejailLauncher, X11Sandbox};
 
 #[derive(Debug, Clone)]
 pub enum EnvVar {
@@ -33,4 +38,4 @@ where
     fn into(self) -> EnvVar {
         EnvVar::KeyValue(self.0.into(), self.1.into())
     }
-use self::firejail::{FirejailLauncher, X11Sandbox};
+}
