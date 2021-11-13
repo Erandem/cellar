@@ -9,6 +9,7 @@ use std::process::Command;
 use std::str::FromStr;
 
 use crate::sandbox::FirejailLauncher;
+use crate::sandbox::{BubLauncher, BubMount};
 
 pub type Result<T, E = CellarError> = std::result::Result<T, E>;
 pub type EnvVars = HashMap<String, String>;
@@ -108,6 +109,55 @@ impl WineCellar {
             WineSync::WINESYNC => todo!("winesync"),
         };
 
+        cmd
+    }
+
+    pub fn bwrap_run(&self) -> Command {
+        let mut l = BubLauncher::default();
+
+        l.mount(BubMount::tmpfs("/tmp"))
+            .mount(BubMount::dev_bind(self.wine_prefix_path(), "/wineprefix"))
+            .mount(BubMount::dev_bind("/run", "/run"))
+            .mount(BubMount::tmpfs("/home"))
+            .mount(BubMount::proc("/proc"))
+            .mount(BubMount::dev_bind(
+                "/run/user/1000/pulse/native",
+                "/run/user/1000/pulse/native",
+            ))
+            .mount(BubMount::dev_bind("/dev", "/dev"))
+            .mount(BubMount::bind_ro("/usr", "/usr"))
+            .mount(BubMount::symlink("/usr/bin", "/bin"))
+            .mount(BubMount::symlink("/usr/bin", "/sbin"))
+            .mount(BubMount::symlink("/usr/lib", "/lib"))
+            .mount(BubMount::symlink("/usr/lib32", "/lib32"))
+            .mount(BubMount::symlink("/usr/lib64", "/lib64"));
+
+        l.env(("HOME", "/home"))
+            .env(("WINEPREFIX", "/wineprefix"))
+            .env(("DISPLAY", ":0"))
+            .env(("XDG_RUNTIME_DIR", "/run/user/1000"))
+            .env(("XAUTHORITY", "/tmp/xauthority"))
+            .env(("DXVK_HUD", "devinfo,fps,api,gpuload,memory"))
+            .env(("LANG", "en_US.UTF-8"))
+            .mount(BubMount::bind_ro("/etc/fonts", "/etc/fonts"))
+            .mount(BubMount::bind_ro("/home/me/.Xauthority", "/tmp/xauthority"));
+        //.mount(BubMount::bind_rw(self.wine_prefix_path(), "/home/wine"));
+
+        match self.config.sync {
+            WineSync::AUTO => l.env(("WINEESYNC", "1")).env(("WINEFSYNC", "1")),
+            WineSync::ESYNC => l.env(("WINEESYNC", "1")),
+            WineSync::FSYNC => l.env(("WINEFSYNC", "1")),
+            WineSync::WINESYNC => todo!("winesync"),
+        };
+
+        let mut cmd = l.command();
+        cmd.arg("--");
+        cmd
+    }
+
+    pub fn bwrap_wine(&self) -> Command {
+        let mut cmd = self.bwrap_run();
+        cmd.arg("/usr/bin/wine");
         cmd
     }
 
