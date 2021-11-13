@@ -31,6 +31,7 @@ fn app<'a>() -> App<'a> {
                 .arg(Arg::new("key").required(true).takes_value(true))
                 .arg(Arg::new("value").required(true).takes_value(true)),
         )
+        .subcommand(App::new("shell").about("Starts a new shell in the sandbox"))
         .subcommand(
             App::new("exec")
                 .about("Allows you to run programs")
@@ -124,6 +125,12 @@ fn main() -> cellar::Result<()> {
             .get_env_vars()
             .iter()
             .for_each(|(k, v)| info!("{}={}", k, v)),
+
+        Some(("shell", args)) => {
+            info!("Starting shell with bubblewrap sandbox");
+
+            cellar.bwrap_run().arg("/usr/bin/bash").status().unwrap();
+        }
 
         Some(("exec", args)) => {
             let exec_path: PathBuf;
