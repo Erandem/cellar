@@ -165,7 +165,7 @@ fn main() -> cellar::Result<()> {
                     .parent()
                     .filter(|x| x != &Path::new(""))
                     .map(|x| x.to_path_buf())
-                    .or(std::env::current_dir().ok())
+                    .or(Some(PathBuf::from("/tmp")))
                     .unwrap();
             }
 
