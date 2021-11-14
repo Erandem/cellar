@@ -10,13 +10,12 @@ use log::{error, info, warn};
 use std::path::{Path, PathBuf};
 
 fn app<'a>() -> App<'a> {
-    App::new("winecellar")
+    App::new("cellar")
         .version("1.0")
-        .about("A toy for wine management without system dependence")
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .arg(
             Arg::new("path")
-                .about("The path to the wine cellar")
+                .about("The path to the cellar")
                 .required(true)
                 .takes_value(true),
         )
@@ -84,7 +83,7 @@ fn main() -> cellar::Result<()> {
     let mut cellar = match WineCellar::open(&path) {
         Ok(cellar) => cellar,
         Err(_) => {
-            warn!("Failed to find winecellar! Creating it...");
+            warn!("Failed to find cellar! Creating it...");
             WineCellar::create(&path)?
         }
     };
@@ -198,11 +197,6 @@ fn main() -> cellar::Result<()> {
                     info!("Wait arg specified! Waiting...");
                 } else {
                     info!("No wait argument specified! Defaulting to \"--wait\"");
-                }
-
-                match cellar_result.wait() {
-                    Ok(ok) => info!("Process exited! {:#?}", ok),
-                    Err(e) => error!("Failed to exit! {:#?}", e),
                 }
             }
         }

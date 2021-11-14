@@ -1,3 +1,3 @@
-# winecellar
+# Cellar
 
-A wine wrapper serving as a fun project for unknown usage
+A fun toy jailing problem
