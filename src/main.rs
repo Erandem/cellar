@@ -41,13 +41,6 @@ fn app<'a>() -> App<'a> {
                         .about("Path to the executable"),
                 )
                 .arg(
-                    Arg::new("rel-c")
-                        .about("Resolves paths relative to C: in the prefix")
-                        .takes_value(false)
-                        .long("rel-c"),
-                )
-                .group(ArgGroup::new("rel-to").arg("rel-c"))
-                .arg(
                     Arg::new("workdir")
                         .about("Working directory of the executable")
                         .takes_value(true),
@@ -125,33 +118,14 @@ fn main() -> cellar::Result<()> {
             .iter()
             .for_each(|(k, v)| info!("{}={}", k, v)),
 
-        Some(("shell", args)) => {
+        Some(("shell", _)) => {
             info!("Starting shell with bubblewrap sandbox");
 
             cellar.bwrap_run().arg("/usr/bin/bash").status().unwrap();
         }
 
         Some(("exec", args)) => {
-            let exec_path: PathBuf;
-
-            if args.is_present("rel-c") {
-                let c_drive_path = cellar.get_c_drive_path();
-                info!("--rel-c flag specified! Resolving relative to C:\\\\");
-
-                let exec: PathBuf = args.value_of_t_or_exit("executable");
-                exec_path = c_drive_path.join(exec);
-            } else {
-                // absolute path implied
-                info!("No path relativity specified! Assuming relative");
-                let path = std::fs::canonicalize(args.value_of_t_or_exit::<PathBuf>("executable"));
-
-                if path.is_err() {
-                    info!("Failed to resolve path! Letting wine handle it");
-                    exec_path = args.value_of_t_or_exit("executable");
-                } else {
-                    exec_path = path.unwrap();
-                }
-            }
+            let exec_path = args.value_of_t_or_exit::<PathBuf>("executable");
 
             let workdir: PathBuf;
 
@@ -182,23 +156,12 @@ fn main() -> cellar::Result<()> {
 
             info!("passing arguments {:?} to the provided binary", exec_args);
 
-            let mut cellar_result = cellar.bwrap_wine();
-            cellar_result.arg(exec_path).args(exec_args);
-            //.current_dir(workdir)
+            let cellar_result = cellar.bwrap_wine()
+                .arg(exec_path)
+                .args(exec_args)
+                .status();
 
-            println!("{:#?}", cellar_result);
-            let mut cellar_result = cellar_result.status();
-            println!("{:#?}", cellar_result);
-
-            if args.is_present("no-wait") {
-                info!("\"no-wait\" flag specified! Exiting...");
-            } else {
-                if args.is_present("wait") {
-                    info!("Wait arg specified! Waiting...");
-                } else {
-                    info!("No wait argument specified! Defaulting to \"--wait\"");
-                }
-            }
+            info!("Exited! Status {:#?}", cellar_result);
         }
 
         Some(("kill", _)) => {
