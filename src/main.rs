@@ -156,12 +156,23 @@ fn main() -> cellar::Result<()> {
 
             info!("passing arguments {:?} to the provided binary", exec_args);
 
-            let cellar_result = cellar.bwrap_wine()
-                .arg(exec_path)
-                .args(exec_args)
-                .status();
+            let mut cellar_result = cellar.bwrap_wine();
+            cellar_result.arg(exec_path).args(exec_args);
+            //.current_dir(workdir)
 
-            info!("Exited! Status {:#?}", cellar_result);
+            println!("{:#?}", cellar_result);
+            let mut cellar_result = cellar_result.status();
+            println!("{:#?}", cellar_result);
+
+            if args.is_present("no-wait") {
+                info!("\"no-wait\" flag specified! Exiting...");
+            } else {
+                if args.is_present("wait") {
+                    info!("Wait arg specified! Waiting...");
+                } else {
+                    info!("No wait argument specified! Defaulting to \"--wait\"");
+                }
+            }
         }
 
         Some(("kill", _)) => {

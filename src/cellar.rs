@@ -137,9 +137,9 @@ impl WineCellar {
             .env(("DISPLAY", ":0"))
             .env(("XDG_RUNTIME_DIR", "/run/user/1000"))
             .env(("XAUTHORITY", "/tmp/xauthority"))
-            .env(("DXVK_HUD", "devinfo,fps,api,gpuload,memory"))
             .env(("LANG", "en_US.UTF-8"))
             .mount(BubMount::bind_ro("/etc/fonts", "/etc/fonts"))
+            .mount(BubMount::dev_bind("/tmp/.X11-unix", "/tmp/.X11-unix"))
             .mount(BubMount::bind_ro("/home/me/.Xauthority", "/tmp/xauthority"));
         //.mount(BubMount::bind_rw(self.wine_prefix_path(), "/home/wine"));
 
