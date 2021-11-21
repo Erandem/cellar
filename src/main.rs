@@ -3,13 +3,13 @@ mod reaper;
 
 use cellar::WineCellar;
 use cellar::WineSync;
-use clap::{App, AppSettings, Arg, ArgGroup};
+use clap::{App, AppSettings, Arg};
 use flexi_logger::Logger;
 use log::{error, info, warn};
 use reaper::ReaperCommand;
 
 use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Stdio;
 
 fn app<'a>() -> App<'a> {
@@ -156,11 +156,12 @@ fn main() -> cellar::Result<()> {
             };
 
             let child_stdin = child.stdin.as_mut().unwrap();
-            start_cmd.dispatch(&*child_stdin);
+            start_cmd.dispatch(&*child_stdin).unwrap();
 
             drop(child_stdin);
 
             child.wait().unwrap();
+            info!("Reaper dead, quitting");
         }
 
         Some(("kill", _)) => {

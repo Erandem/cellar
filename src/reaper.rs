@@ -35,6 +35,8 @@ fn start_logging() -> Result<()> {
     Ok(())
 }
 
+// Suppress this main not being called, which also lets the other functions here not show as unused
+#[allow(dead_code)]
 fn main() -> Result<()> {
     start_logging()?;
 
@@ -43,7 +45,7 @@ fn main() -> Result<()> {
 
     info!("Obtaining stdin lock");
     let stdin = io::stdin();
-    let mut stdin = stdin.lock();
+    let stdin = stdin.lock();
 
     info!("Listening for commands");
     let s: ReaperCommand = bincode::deserialize_from(stdin).unwrap();

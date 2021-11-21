@@ -2,7 +2,6 @@ use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -190,11 +189,6 @@ impl WineCellar {
 
     pub fn get_env_vars(&self) -> &Vec<EnvVar> {
         &self.config.extra_env
-    }
-
-    pub fn get_c_drive_path(&self) -> PathBuf {
-        let wineprefix = self.wine_prefix_path();
-        wineprefix.join("drive_c")
     }
 
     #[allow(dead_code)]
