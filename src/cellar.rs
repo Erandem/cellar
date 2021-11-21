@@ -1,6 +1,6 @@
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
-use snafu::prelude::*;
+use thiserror::Error;
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -42,29 +42,13 @@ fn get_reaper_path() -> String {
     }
 }
 
-#[derive(Debug, Snafu)]
+#[derive(Debug, Error)]
 pub enum CellarError {
-    MissingConfig {
-        path: PathBuf,
-        source: std::io::Error,
-    },
+    #[error(transparent)]
+    ConfigError(#[from] std::io::Error),
 
-    ConfigWriteError {
-        path: PathBuf,
-        source: std::io::Error,
-    },
-
-    SerializationError {
-        source: serde_json::Error,
-    },
-
-    DeserializationError {
-        source: serde_json::Error,
-    },
-
-    ChildExecError {
-        source: std::io::Error,
-    },
+    #[error(transparent)]
+    SerdeError(#[from] serde_json::Error),
 }
 
 #[derive(Debug)]
@@ -77,23 +61,18 @@ impl WineCellar {
     pub fn open<T: AsRef<Path>>(path: T) -> Result<WineCellar> {
         let cellar_path = path.as_ref();
         let cfg_path = cellar_path.join(WINE_CELLAR_CONFIG);
-        let file = File::open(&cfg_path).context(MissingConfigSnafu {
-            path: cfg_path.clone(),
-        })?;
+        let file = File::open(&cfg_path)?;
 
         Ok(WineCellar {
             path: cellar_path.to_path_buf(),
-            config: serde_json::from_reader(file).context(DeserializationSnafu)?,
+            config: serde_json::from_reader(file)?,
         })
     }
 
     pub fn create<T: AsRef<Path>>(path: T) -> Result<WineCellar> {
         let cellar_path = path.as_ref();
-        let cfg_path = cellar_path.join(WINE_CELLAR_CONFIG);
 
-        std::fs::create_dir_all(cellar_path).context(ConfigWriteSnafu {
-            path: cfg_path.clone(),
-        })?;
+        std::fs::create_dir_all(cellar_path)?;
 
         let cellar = WineCellar {
             path: cellar_path.to_path_buf(),
@@ -106,11 +85,9 @@ impl WineCellar {
     }
 
     pub fn save_config(&self) -> Result<()> {
-        let cfg = File::create(self.config_path()).context(ConfigWriteSnafu {
-            path: self.config_path(),
-        })?;
+        let cfg = File::create(self.config_path())?;
+        serde_json::to_writer_pretty(cfg, &self.config)?;
 
-        serde_json::to_writer_pretty(cfg, &self.config).context(SerializationSnafu)?;
         Ok(())
     }
 
