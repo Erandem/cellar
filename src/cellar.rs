@@ -1,4 +1,4 @@
-use log::{error, info};
+use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use snafu::prelude::*;
 
@@ -8,13 +8,39 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
 
-use crate::sandbox::FirejailLauncher;
-use crate::sandbox::{BubLauncher, BubMount};
+use cellar_sandbox::{BubLauncher, BubMount, EnvVar, FirejailLauncher};
 
 pub type Result<T, E = CellarError> = std::result::Result<T, E>;
-pub type EnvVars = HashMap<String, String>;
 
 pub const WINE_CELLAR_CONFIG: &str = "winecellar.json";
+
+fn get_reaper_path() -> String {
+    debug!("Attempting to resolve reaper path");
+
+    if cfg!(debug_assertions) {
+        let debug_path = "target/debug/cellar-reaper".to_string();
+        debug!("Debug assertions enabled! Trying {}", debug_path);
+        let metadata = std::fs::metadata(&debug_path);
+
+        if let Ok(meta) = metadata {
+            if meta.is_file() {
+                info!("Resolved reaper to {}", debug_path);
+                debug_path
+            } else {
+                todo!("Reaper is not a file")
+            }
+        } else {
+            error!(
+                "Resolving metadata failed! Error: {:?}",
+                metadata.unwrap_err()
+            );
+
+            todo!("Handle missing debug reaper")
+        }
+    } else {
+        todo!("Implement reaper resolving")
+    }
+}
 
 #[derive(Debug, Snafu)]
 pub enum CellarError {
@@ -100,7 +126,13 @@ impl WineCellar {
 
         cmd.arg(self.wine_bin_path());
         cmd.env("WINEPREFIX", self.wine_prefix_path());
-        cmd.envs(self.get_env_vars());
+        cmd.envs(
+            self.get_env_vars()
+                .iter()
+                .map(|x| x.clone())
+                .map(|x| x.to_key_value())
+                .collect::<Vec<(String, String)>>(),
+        );
 
         match self.config.sync {
             WineSync::AUTO => cmd.env("WINEESYNC", "1").env("WINEFSYNC", "1"),
@@ -131,6 +163,9 @@ impl WineCellar {
             .mount(BubMount::symlink("/usr/lib", "/lib"))
             .mount(BubMount::symlink("/usr/lib32", "/lib32"))
             .mount(BubMount::symlink("/usr/lib64", "/lib64"));
+
+        let reaper_path = get_reaper_path();
+        l.mount(BubMount::bind_ro(reaper_path, "/tmp/reaper"));
 
         l.env(("HOME", "/home"))
             .env(("WINEPREFIX", "/wineprefix"))
@@ -172,11 +207,11 @@ impl WineCellar {
             .unwrap();
     }
 
-    pub fn set_env_var(&mut self, key: String, val: String) {
-        self.config.extra_env.insert(key, val);
+    pub fn set_env_var<T: Into<EnvVar>>(&mut self, env: T) {
+        self.config.extra_env.push(env.into());
     }
 
-    pub fn get_env_vars(&self) -> &EnvVars {
+    pub fn get_env_vars(&self) -> &Vec<EnvVar> {
         &self.config.extra_env
     }
 
@@ -186,8 +221,8 @@ impl WineCellar {
     }
 
     #[allow(dead_code)]
-    pub fn get_env_var<T: AsRef<str>>(&self, var: T) -> Option<&str> {
-        self.get_env_vars().get(var.as_ref()).map(|x| &**x)
+    pub fn get_env_var<T: AsRef<str>>(&self, var: T) -> Option<&EnvVar> {
+        self.get_env_vars().iter().find(|x| x.key() == var.as_ref())
     }
 
     #[allow(dead_code)]
@@ -235,7 +270,7 @@ impl AsMut<CellarConfig> for WineCellar {
 pub struct CellarConfig {
     pub sandbox: bool,
     pub sync: WineSync,
-    extra_env: HashMap<String, String>,
+    extra_env: Vec<EnvVar>,
 }
 
 impl Default for CellarConfig {
@@ -243,7 +278,7 @@ impl Default for CellarConfig {
         CellarConfig {
             sandbox: true,
             sync: WineSync::default(),
-            extra_env: HashMap::new(),
+            extra_env: Vec::default(),
         }
     }
 }

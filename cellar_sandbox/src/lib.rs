@@ -5,7 +5,9 @@ pub mod firejail;
 pub use self::bubblewrap::{BubLauncher, BubMount};
 pub use self::firejail::{FirejailLauncher, X11Sandbox};
 
-#[derive(Debug, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EnvVar {
     /// Uses the env var in the environment when calling a command which would use it
     Pass(String),
@@ -13,6 +15,12 @@ pub enum EnvVar {
 }
 
 impl EnvVar {
+    pub fn key(&self) -> &str {
+        match self {
+            EnvVar::Pass(k) | EnvVar::KeyValue(k, ..) => k,
+        }
+    }
+
     pub fn to_key_value(self) -> (String, String) {
         match self {
             EnvVar::Pass(k) => {

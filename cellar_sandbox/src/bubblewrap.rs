@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-use crate::sandbox::EnvVar;
+use crate::EnvVar;
 
 #[derive(Debug, Clone)]
 pub enum BubMount {
@@ -193,7 +193,7 @@ impl Default for BubLauncher {
             inherit_env: false,
 
             unshare_user: false,
-            unshare_ipc: true,
+            unshare_ipc: false,
             unshare_pid: true,
             unshare_net: true,
             unshare_uts: true,

@@ -1,13 +1,16 @@
 mod cellar;
-mod sandbox;
+mod reaper;
 
 use cellar::WineCellar;
 use cellar::WineSync;
 use clap::{App, AppSettings, Arg, ArgGroup};
 use flexi_logger::Logger;
 use log::{error, info, warn};
+use reaper::ReaperCommand;
 
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+use std::process::Stdio;
 
 fn app<'a>() -> App<'a> {
     App::new("cellar")
@@ -40,19 +43,12 @@ fn app<'a>() -> App<'a> {
                         .takes_value(true)
                         .about("Path to the executable"),
                 )
-                .arg(
-                    Arg::new("workdir")
-                        .about("Working directory of the executable")
-                        .takes_value(true),
-                )
-                .group(ArgGroup::new("wait-type").arg("wait").arg("no-wait"))
-                .arg(Arg::new("no-wait").about("Does not wait for cellar before exiting"))
-                .arg(Arg::new("wait").about("Wait for cellar to exit").short('w'))
                 // for all arguments to be passed to the executable
                 .setting(AppSettings::TrailingVarArg)
                 .arg(
                     Arg::new("exec-arguments")
                         .raw(true)
+                        .last(true)
                         .about("All arguments to be passed to the executable"),
                 ),
         )
@@ -108,15 +104,12 @@ fn main() -> cellar::Result<()> {
             let key: String = args.value_of_t_or_exit("key");
             let value: String = args.value_of_t_or_exit("value");
 
-            cellar.set_env_var(key.clone(), value.clone());
-            cellar.save_config()?;
             info!("Set {} to {}", key, value);
+            cellar.set_env_var((key, value));
+            cellar.save_config()?;
         }
 
-        Some(("list-env", _)) => cellar
-            .get_env_vars()
-            .iter()
-            .for_each(|(k, v)| info!("{}={}", k, v)),
+        Some(("list-env", _)) => cellar.get_env_vars().iter().for_each(|e| info!("{:?}", e)),
 
         Some(("shell", _)) => {
             info!("Starting shell with bubblewrap sandbox");
@@ -127,52 +120,47 @@ fn main() -> cellar::Result<()> {
         Some(("exec", args)) => {
             let exec_path = args.value_of_t_or_exit::<PathBuf>("executable");
 
-            let workdir: PathBuf;
-
-            info!("Launching executable with path {:?}", exec_path);
-
-            if args.is_present("workdir") {
-                workdir = args.value_of_t_or_exit("workdir");
-            } else {
-                workdir = exec_path
-                    .parent()
-                    .filter(|x| x != &Path::new(""))
-                    .map(|x| x.to_path_buf())
-                    .or(Some(PathBuf::from("/tmp")))
-                    .unwrap();
-            }
-
             // TODO Add wine version information
             info!("Using wine version {}", "todo");
-            info!("Using work directory {:?}", workdir);
 
             // direct path expected
-            let exec_args = args
+            let mut exec_args = args
                 .values_of("exec-arguments")
                 .into_iter()
                 .flatten()
                 .map(|x| x.to_string())
-                .collect::<Vec<String>>();
+                .collect::<VecDeque<String>>();
 
-            info!("passing arguments {:?} to the provided binary", exec_args);
+            info!(
+                "Calling {} {}",
+                exec_path.display(),
+                exec_args.make_contiguous().join(" ")
+            );
 
-            let mut cellar_result = cellar.bwrap_wine();
-            cellar_result.arg(exec_path).args(exec_args);
-            //.current_dir(workdir)
+            // We gotta put the executable path at the very start so wine knows what executable to
+            // start
+            exec_args.push_front(exec_path.as_os_str().to_str().unwrap().to_string());
 
-            println!("{:#?}", cellar_result);
-            let mut cellar_result = cellar_result.status();
-            println!("{:#?}", cellar_result);
+            let mut child = cellar
+                .bwrap_run()
+                .arg("/tmp/reaper")
+                .stdin(Stdio::piped())
+                .spawn()
+                .unwrap();
 
-            if args.is_present("no-wait") {
-                info!("\"no-wait\" flag specified! Exiting...");
-            } else {
-                if args.is_present("wait") {
-                    info!("Wait arg specified! Waiting...");
-                } else {
-                    info!("No wait argument specified! Defaulting to \"--wait\"");
-                }
-            }
+            info!("Starting reaper in jail");
+            let start_cmd = ReaperCommand::Execute {
+                exec: "/usr/bin/wine".into(),
+                args: exec_args.into_iter().collect(),
+                env: cellar.get_env_vars().clone(),
+            };
+
+            let child_stdin = child.stdin.as_mut().unwrap();
+            start_cmd.dispatch(&*child_stdin);
+
+            drop(child_stdin);
+
+            child.wait().unwrap();
         }
 
         Some(("kill", _)) => {
