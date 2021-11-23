@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
 
+use camino::{Utf8Path, Utf8PathBuf};
 use cellar_sandbox::{BubLauncher, BubMount, EnvVar, FirejailLauncher};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
@@ -37,33 +38,35 @@ pub enum CellarError {
 
     #[error("unable to locate reaper")]
     ReaperMissing,
+
+    #[error(transparent)]
+    NonUtf8Path(#[from] camino::FromPathError),
 }
 
 #[derive(Debug)]
 pub struct WineCellar {
-    path: PathBuf,
+    path: Utf8PathBuf,
     pub config: CellarConfig,
 }
 
 impl WineCellar {
     pub fn open<T: AsRef<Path>>(path: T) -> Result<WineCellar> {
-        let cellar_path = path.as_ref();
-        let cfg_path = cellar_path.join(WINE_CELLAR_CONFIG);
+        let path: &Utf8Path = path.as_ref().try_into()?;
+        let cfg_path = path.join(WINE_CELLAR_CONFIG);
         let file = File::open(&cfg_path)?;
 
         Ok(WineCellar {
-            path: cellar_path.to_path_buf(),
+            path: path.to_path_buf(),
             config: serde_json::from_reader(file)?,
         })
     }
 
     pub fn create<T: AsRef<Path>>(path: T) -> Result<WineCellar> {
-        let cellar_path = path.as_ref();
-
-        std::fs::create_dir_all(cellar_path)?;
+        let path: &Utf8Path = path.as_ref().try_into()?;
+        std::fs::create_dir_all(&path)?;
 
         let cellar = WineCellar {
-            path: cellar_path.to_path_buf(),
+            path: path.to_path_buf(),
             config: CellarConfig::default(),
         };
 
@@ -186,30 +189,24 @@ impl WineCellar {
     }
 
     #[allow(dead_code)]
-    pub fn config_path(&self) -> PathBuf {
+    pub fn config_path(&self) -> Utf8PathBuf {
         self.path.join(WINE_CELLAR_CONFIG)
     }
 
     #[allow(dead_code)]
-    pub fn wine_bin_path(&self) -> PathBuf {
-        PathBuf::from("wine")
+    pub fn wine_bin_path(&self) -> Utf8PathBuf {
+        Utf8PathBuf::from("wine")
     }
 
     #[allow(dead_code)]
     pub fn wine_prefix_path(&self) -> PathBuf {
-        let prefix_rel = self.path.to_path_buf();
-        let abs_prefix = std::fs::canonicalize(prefix_rel).unwrap();
+        let abs_prefix = std::fs::canonicalize(&self.path).unwrap();
 
         abs_prefix
     }
 
     #[allow(dead_code)]
-    pub fn wine_path(&self) -> PathBuf {
-        self.path.to_path_buf()
-    }
-
-    #[allow(dead_code)]
-    pub fn path(&self) -> &Path {
+    pub fn path(&self) -> &Utf8Path {
         &self.path
     }
 }
