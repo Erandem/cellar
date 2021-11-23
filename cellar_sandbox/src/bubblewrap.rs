@@ -1,7 +1,7 @@
+use crate::EnvVar;
+
 use std::path::PathBuf;
 use std::process::Command;
-
-use crate::EnvVar;
 
 #[derive(Debug, Clone)]
 pub enum BubMount {

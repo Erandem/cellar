@@ -1,11 +1,11 @@
+use std::io::{self, Write};
+use std::process::Command;
+use std::time::Instant;
+
 use cellar_sandbox::EnvVar;
 use log::info;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use std::io::{self, Write};
-use std::process::Command;
-use std::time::Instant;
 
 pub type Result<T, E = std::io::Error> = std::result::Result<T, E>;
 

@@ -1,16 +1,16 @@
 mod cellar;
 mod reaper;
 
-use cellar::WineCellar;
-use cellar::WineSync;
-use clap::{App, AppSettings, Arg};
-use flexi_logger::Logger;
-use log::{error, info, warn};
-use reaper::ReaperCommand;
+use crate::cellar::{WineCellar, WineSync};
+use crate::reaper::ReaperCommand;
 
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::process::Stdio;
+
+use clap::{App, AppSettings, Arg};
+use flexi_logger::Logger;
+use log::{error, info, warn};
 
 fn app<'a>() -> App<'a> {
     App::new("cellar")
