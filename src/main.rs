@@ -5,9 +5,9 @@ use crate::cellar::{WineCellar, WineSync};
 use crate::reaper::ReaperCommand;
 
 use std::collections::VecDeque;
-use std::path::PathBuf;
 use std::process::Stdio;
 
+use camino::Utf8PathBuf;
 use clap::{App, AppSettings, Arg};
 use flexi_logger::Logger;
 use log::{error, info, warn};
@@ -68,7 +68,7 @@ fn main() -> cellar::Result<()> {
 
     let matches = app().get_matches();
 
-    let path = matches.value_of_t_or_exit::<PathBuf>("path");
+    let path = matches.value_of_t_or_exit::<Utf8PathBuf>("path");
     let mut cellar = match WineCellar::open(&path) {
         Ok(cellar) => cellar,
         Err(_) => {
@@ -118,7 +118,7 @@ fn main() -> cellar::Result<()> {
         }
 
         Some(("exec", args)) => {
-            let exec_path = args.value_of_t_or_exit::<PathBuf>("executable");
+            let exec_path = args.value_of_t_or_exit::<Utf8PathBuf>("executable");
 
             // TODO Add wine version information
             info!("Using wine version {}", "todo");
@@ -133,13 +133,13 @@ fn main() -> cellar::Result<()> {
 
             info!(
                 "Calling {} {}",
-                exec_path.display(),
+                exec_path,
                 exec_args.make_contiguous().join(" ")
             );
 
             // We gotta put the executable path at the very start so wine knows what executable to
             // start
-            exec_args.push_front(exec_path.as_os_str().to_str().unwrap().to_string());
+            exec_args.push_front(exec_path.into_string());
 
             let mut child = cellar
                 .bwrap_run()
