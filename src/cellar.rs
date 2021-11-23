@@ -12,33 +12,20 @@ use cellar_sandbox::{BubLauncher, BubMount, EnvVar, FirejailLauncher};
 pub type Result<T, E = CellarError> = std::result::Result<T, E>;
 
 pub const WINE_CELLAR_CONFIG: &str = "winecellar.json";
+pub const REAPER_LOCAL_LOCATIONS: &str = ".:target/debug/:target/release";
+pub const REAPER_BIN_NAME: &str = "cellar-reaper";
 
-fn get_reaper_path() -> String {
-    debug!("Attempting to resolve reaper path");
-
-    if cfg!(debug_assertions) {
-        let debug_path = "target/debug/cellar-reaper".to_string();
-        debug!("Debug assertions enabled! Trying {}", debug_path);
-        let metadata = std::fs::metadata(&debug_path);
-
-        if let Ok(meta) = metadata {
-            if meta.is_file() {
-                info!("Resolved reaper to {}", debug_path);
-                debug_path
-            } else {
-                todo!("Reaper is not a file")
-            }
-        } else {
-            error!(
-                "Resolving metadata failed! Error: {:?}",
-                metadata.unwrap_err()
-            );
-
-            todo!("Handle missing debug reaper")
-        }
-    } else {
-        todo!("Implement reaper resolving")
-    }
+fn get_reaper_path() -> Result<PathBuf> {
+    // First, check if the reaper binary can be found in the debug or release targets of cargo, or
+    // if it can be found in the cwd
+    which::which_in(REAPER_BIN_NAME, Some(REAPER_LOCAL_LOCATIONS), ".")
+        // Otherwise, resolve it system-wide
+        .or_else(|err| {
+            debug!("failed to locate reaper locally due to {:?}", err);
+            which::which(REAPER_BIN_NAME)
+        })
+        // If an error occurs, report that the reaper is missing
+        .map_err(|_| CellarError::ReaperMissing)
 }
 
 #[derive(Debug, Error)]
@@ -48,6 +35,9 @@ pub enum CellarError {
 
     #[error(transparent)]
     SerdeError(#[from] serde_json::Error),
+
+    #[error("unable to locate reaper")]
+    ReaperMissing,
 }
 
 #[derive(Debug)]
@@ -140,7 +130,7 @@ impl WineCellar {
             .mount(BubMount::symlink("/usr/lib32", "/lib32"))
             .mount(BubMount::symlink("/usr/lib64", "/lib64"));
 
-        let reaper_path = get_reaper_path();
+        let reaper_path = get_reaper_path().expect("failed to find reaper");
         l.mount(BubMount::bind_ro(reaper_path, "/tmp/reaper"));
 
         l.env(("HOME", "/home"))
